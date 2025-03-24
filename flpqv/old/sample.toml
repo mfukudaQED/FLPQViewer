@@ -1,0 +1,65 @@
+[DEFINITION."セクション1"]
+key1 = [
+    "key1の説明",
+    "bool",
+]
+key2 = [
+    "key2の説明",
+    "str",
+]
+key3 = [
+    "key3の説明",
+    "int",
+]
+
+[DEFINITION."セクション2"]
+key4 = [
+    "key4の説明",
+    "bool",
+]
+key5 = [
+    "key5の説明",
+    "str",
+]
+key6 = [
+    "key6の説明",
+    "str",
+]
+
+[DEFINITION."セクション3"]
+key7 = [
+    "key7の説明",
+    "bool",
+]
+key8 = [
+    "key8の説明",
+    "str",
+]
+
+[DEFAULT."セクション1"]
+key1 = true
+key2 = "文字列2"
+key3 = 800
+
+[DEFAULT."セクション2"]
+key4 = false
+key5 = "文字列5"
+key6 = "文字列6"
+
+[DEFAULT."セクション3"]
+key7 = true
+key8 = "文字列8"
+
+[USER."セクション1"]
+key1 = true
+key2 = "文字列2"
+key3 = 800
+
+[USER."セクション2"]
+key4 = false
+key5 = "文字列5"
+key6 = "文字列6"
+
+[USER."セクション3"]
+key7 = true
+key8 = "文字列8"
