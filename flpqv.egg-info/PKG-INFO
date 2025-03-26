@@ -6,7 +6,6 @@ Author-email: Masahiro FUKUDA <masahiro.fukuda@issp.u-tokyo.ac.jp>
 License-Expression: MIT
 Requires-Python: <3.13,>=3.8
 Description-Content-Type: text/markdown
-License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: numpy>=2.0.0
 Requires-Dist: trimesh
@@ -15,7 +14,6 @@ Requires-Dist: scikit-image
 Requires-Dist: matplotlib
 Requires-Dist: watchdog
 Requires-Dist: sphinx
-Dynamic: license-file
 
 # About
 FLPQViewer is a code to visualize local physical quantities.

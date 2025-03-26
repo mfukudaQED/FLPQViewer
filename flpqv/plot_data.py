@@ -1,3 +1,7 @@
+import os
+import pprint
+import copy
+import numpy as np
 
 import trimesh
 
@@ -380,7 +384,7 @@ def plot_lattice_box(ax, data_toml, data_cube):
     centroid = np.zeros(3)
     if(data_toml["view"]["centering"]):
         # **重心を求める**
-        centroid = np.mean(data_cube1.positions_ang, axis=0)
+        centroid = np.mean(data_cube.positions_ang, axis=0)
     
     # ボックスの8つの頂点を計算
     v1 = lattice[0]
