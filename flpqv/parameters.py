@@ -48,10 +48,12 @@ class Data_atoms():
          2.06, 2.00, 1.96, 1.90, 1.87, 1.80, 1.69, 1.60, 1.60, 1.60,
          1.60, 1.60, 1.60, 1.60]
 
-    def hex_to_rgb(hex_code):
-        hex_code = hex_code.lstrip("#")  # "#" を削除
-        return tuple(int(hex_code[i:i+2], 16) for i in (0, 2, 4))
-        # print(hex_to_rgb("#FF5733"))  # (255, 87, 51)
+    #def hex_to_rgb(hex_code):
+    #    hex_code = hex_code.lstrip("#")  # "#" を削除
+    #    return tuple(int(hex_code[i:i+2], 16) for i in (0, 2, 4))
+    #    # print(hex_to_rgb("#FF5733"))  # (255, 87, 51)
+
+
 
     def __repr__(self):
         return self.__class__.__name__ +"(" + pprint.pformat(self.__dict__) +")"

@@ -18,39 +18,54 @@ from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
+import plotly.graph_objects as go
 
 
 #
 from parameters import BohrR
 from parameters import Data_atoms
 
+def hex_to_rgb(hex_code):
+    hex_code = hex_code.lstrip("#")  # "#" を削除
+    return tuple(int(hex_code[i:i+2], 16) for i in (0, 2, 4))
+    # print(hex_to_rgb("#FF5733"))  # (255, 87, 51)
 
-def plot_structure(ax, data_toml, data_cube):
+def get_text_color(rgb):
+    """Determine whether to use black or white text based on background color."""
+    rgb01 = np.array(rgb)/255
+    luminance = 0.299 * rgb01[0] + 0.587 * rgb01[1] + 0.114 * rgb01[2]
+    return "black" if luminance > 0.5 else "white"
+
+def plot_structure(ax, text_objects, data_toml, data_cube):
     """
     原子構造をプロットするコード
     """
+
+    toml_s = data_toml["structure"]
+
     # 原子座標を取得
     positions = data_cube.positions_ang
     numbers = np.int64(data_cube.numbers)
+    indices = data_cube.indices
 
     centroid = np.zeros(3)
     if(data_toml["view"]["centering"]):
         # **重心を求める**
         centroid = np.mean(data_cube.positions_ang, axis=0)
 
-    positions = positions - centroid
+    positions = positions - centroid + np.array(data_toml["view"]["translate"])
 
     # 結合の閾値（Å単位）
-    bond_factor = float(data_toml["view"]["bond_factor"]) # 原子間距離がこの値以下なら結合とみなす
-    bond_size_ratio = float(data_toml["view"]["bond_size_ratio"])
-    atom_size_ratio = float(data_toml["view"]["atom_size_ratio"]) 
+    bond_factor = float(toml_s["bond_factor"]) # 原子間距離がこの値以下なら結合とみなす
+    bond_size_ratio = float(toml_s["bond_size_ratio"])
+    atom_size_ratio = float(toml_s["atom_size_ratio"]) 
     
     # **結合リストを作る**
     distances = cdist(positions, positions)
     bonds = [(i, j) for i in range(len(positions)) for j in range(i+1, len(positions)) if distances[i, j] < bond_factor]
 
     data_atoms = Data_atoms()
-    if not (data_toml["color_list"]["color_atoms"]):
+    if not (toml_s["color_atoms"]):
         data_atoms.color[:] = ["#778899"] * len(data_atoms.color)
     
     # 色の設定
@@ -64,7 +79,7 @@ def plot_structure(ax, data_toml, data_cube):
         x = radius * np.outer(np.cos(u), np.sin(v)) + center[0]
         y = radius * np.outer(np.sin(u), np.sin(v)) + center[1]
         z = radius * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
-        ax.plot_surface(x, y, z, color=color, alpha=1.0, edgecolor="k", linewidth=0.0, antialiased=True)
+        ax.plot_surface(x, y, z, color=color, alpha=1.0, edgecolor="k", linewidth=0.0, antialiased=True, zorder=25)
 
         vertices = np.array([x.ravel(), y.ravel(), z.ravel()]).T
         faces = []
@@ -119,7 +134,7 @@ def plot_structure(ax, data_toml, data_cube):
         x, y, z = xyz[0].reshape(x.shape) + p1_new[0], xyz[1].reshape(y.shape) + p1_new[1], xyz[2].reshape(z.shape) + p1_new[2]
     
         # プロット
-        ax.plot_surface(x, y, z, color="white", alpha=1.0, linewidth=0.0, antialiased=True)
+        ax.plot_surface(x, y, z, color="white", alpha=1.0, linewidth=0.0, antialiased=True, zorder=25)
 
         vertices = np.array([x.ravel(), y.ravel(), z.ravel()]).T
         faces = []
@@ -142,9 +157,59 @@ def plot_structure(ax, data_toml, data_cube):
                                     r_atom1=data_atoms.size[numbers[i]]*atom_size_ratio,
                                     r_atom2=data_atoms.size[numbers[j]]*atom_size_ratio)
 
+    #proj = ax.get_proj()  # Get the projection matrix
+    #scale = max(np.abs(proj[0, 0]), np.abs(proj[1, 1]), np.abs(proj[2, 2]))
+
     # 各原子を球でプロット
-    for pos, num in zip(positions, numbers):
-        plot_sphere(ax, pos, data_atoms.size[num]*atom_size_ratio, data_atoms.color[num])
+    list_vertices_faces_atom= []
+    list_face_colors = []
+    for index, pos, num in zip(indices, positions, numbers):
+        list_vertices_faces_atom.append(plot_sphere(ax, pos, data_atoms.size[num]*atom_size_ratio, data_atoms.color[num]))
+        list_face_colors.append(data_atoms.color[num]) 
+        text_color = get_text_color(hex_to_rgb(data_atoms.color[num]))
+        #print(text_color)
+        text_fontsize = 24*data_atoms.size[num]*atom_size_ratio*data_toml["view"]["ratio_zoom"]
+        #text_fontsize_scaled =text_fontsize / scale
+        if (toml_s["number"]):
+            text = ax.text(pos[0], pos[1], pos[2], index, color=text_color, fontsize=text_fontsize, ha='center', va='center', zorder=75)
+            text_objects.append((text, text_color, text_fontsize))
+        elif (toml_s["element"]):
+            text = ax.text(pos[0], pos[1], pos[2], data_atoms.name[num], color=text_color, fontsize=text_fontsize, ha='center', va='center', zorder=75)
+            text_objects.append((text, text_color, text_fontsize))
+
+    #list_vertices_atom = np.vstack(list_vertices_faces_atom[0])
+    #list_faces_atom = np.vstack(list_vertices_faces_atom[1])
+
+    #layout = go.Layout(
+    #    scene=dict(
+    #        xaxis=dict(title='X', range=[-5, 5]),  # Set range for X axis
+    #        yaxis=dict(title='Y', range=[-5, 5]),  # Set range for Y axis
+    #        zaxis=dict(title='Z', range=[-5, 5]),  # Set range for Z axis
+    #        camera=dict(
+    #            projection=dict(
+    #                type='orthographic'  # Use orthographic projection
+    #            ),
+    #            eye=dict(x=1.5, y=1.5, z=1.5)  # Adjust camera position
+    #        )
+    #    ),
+    #)
+
+    #figp = go.Figure(layout=layout)
+    #for index, tmp in enumerate(list_vertices_faces_atom):
+    #    i, j, k = zip(*tmp[1])
+
+    #    figp.add_trace(go.Mesh3d(
+    #        x=tmp[0][:, 0],  # x座標
+    #        y=tmp[0][:, 1],  # y座標
+    #        z=tmp[0][:, 2],  # z座標
+    #        i=i,     # 面の1番目の頂点インデックス
+    #        j=j,     # 面の2番目の頂点インデックス
+    #        k=k,     # 面の3番目の頂点インデックス
+    #        color = list_face_colors[index],
+    #        opacity=0.7        # 透明度
+    #    ))
+
+    #figp.write_html("output.html")
 
     ## **すべての結合を円柱で描画**
     #list_vertices_faces_bond = []
@@ -168,25 +233,37 @@ def plot_structure(ax, data_toml, data_cube):
     return
 
 
-def create_supercell(verts, faces, supercell_size=(1, 1, 1)):
+def create_supercell(lattice, verts, faces=None, face_colors=None, supercell_size=(1, 1, 1)):
     """
-    Marching CubesのvertsとfacesからSupercellを作成する関数
-    
+    Create a supercell from the given vertices and faces.
+
     Parameters:
+    lattice : numpy.ndarray
+        (3, 3) lattice matrix defining the unit cell
     verts : numpy.ndarray
-        (N, 3) の頂点座標リスト
+        (N, 3) array of vertex coordinates
     faces : numpy.ndarray
-        (M, 3) の三角形のインデックス
+        (M, 3) array of triangle indices
+    face_colors : numpy.ndarray
+        (M, 3) array of colors corresponding to each face
     supercell_size : tuple
-        (sx, sy, sz) の繰り返し数
-    
+        (sx, sy, sz) defining the repetition count along each axis
+
     Returns:
-    new_verts, new_faces : numpy.ndarray, numpy.ndarray
-        Supercellの頂点と三角形インデックス
+    new_lattice : numpy.ndarray
+        (3, 3) lattice matrix of the supercell
+    new_verts : numpy.ndarray
+        (N * sx * sy * sz, 3) array of vertex coordinates
+    new_faces : numpy.ndarray
+        (M * sx * sy * sz, 3) array of triangle indices
+    new_face_colors : numpy.ndarray
+        (M * sx * sy * sz, 3) array of colors for the supercell faces
     """
+
     sx, sy, sz = supercell_size
     new_verts = []
-    new_faces = []
+    new_faces = [] if faces is not None else None
+    new_face_colors = [] if face_colors is not None else None
 
     # Supercellの各シフトベクトルを計算
     shift_vectors = np.array([
@@ -196,22 +273,33 @@ def create_supercell(verts, faces, supercell_size=(1, 1, 1)):
     num_original_verts = len(verts)
     
     for shift in shift_vectors:
-        shift_vec = shift * np.array([1.0, 1.0, 1.0])  # 必要なら格子定数をかける
+        shift_vec = np.dot(shift, lattice)
         new_verts.append(verts + shift_vec)
 
     new_verts = np.vstack(new_verts)
 
     # 各コピーごとにfacesを追加（インデックスはオフセットする）
-    for i, shift in enumerate(shift_vectors):
-        offset = i * num_original_verts
-        new_faces.append(faces + offset)
+    if faces is not None:
+        for i, shift in enumerate(shift_vectors):
+            offset = i * num_original_verts
+            new_faces.append(faces + offset)
+            if face_colors is not None:
+                new_face_colors.append(face_colors)
 
-    new_faces = np.vstack(new_faces)
+    if faces is not None:
+        new_faces = np.vstack(new_faces)
+        if face_colors is not None:
+            new_face_colors = np.vstack(new_face_colors)
 
-    return new_verts, new_faces
+    # Scale lattice for supercell
+    new_lattice = lattice * np.array(supercell_size)[:, np.newaxis] 
+
+    return new_lattice, new_verts, new_faces, new_face_colors
 
 def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
     """ cube1の等値面を描き、その上にcube2のデータをカラーマップ＆等高線として描く """
+
+    toml_i = data_toml["isosurface"]
 
     #print(repr(data_cube2))
 
@@ -247,9 +335,9 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
 
     # ** 周期境界条件のために 1 周期分拡張 **
     wpad = [0,0,0]
-    wpad[0] = int(data_toml["periodicity"][0])
-    wpad[1] = int(data_toml["periodicity"][1])
-    wpad[2] = int(data_toml["periodicity"][2])
+    wpad[0] = int(toml_i["periodicity"][0])
+    wpad[1] = int(toml_i["periodicity"][1])
+    wpad[2] = int(toml_i["periodicity"][2])
     #data1_extended = np.pad(data1, pad_width=((1, 1), (1, 1), (1, 1)), mode='wrap')   
     data1_extended = np.pad(data1, pad_width=((wpad[0], wpad[0]), (wpad[1], wpad[1]), (wpad[2], wpad[2])), mode='wrap')   
     data2_extended = np.pad(data2, pad_width=((0, wpad[0]), (0, wpad[1]), (0, wpad[2])), mode='wrap')   
@@ -258,15 +346,15 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
     y2_cubes = np.linspace(0, data_cube2.num_mesh[1], data_cube2.num_mesh[1]+wpad[1])
     z2_cubes = np.linspace(0, data_cube2.num_mesh[2], data_cube2.num_mesh[2]+wpad[2])
 
-    if (data_toml["color_list"]["smooth"]):
+    if (toml_i["smooth"]):
         # データをスムージング
         smooth_data = gaussian_filter(data1_extended, sigma=0.8)  # sigmaを調整（大きいほど滑らか）
 
         # スムージング後のデータで等値面を抽出
-        verts, faces, normals, _ = marching_cubes(smooth_data, level=data_toml["isovalue"], step_size=data_toml["view"]["roughness"])    
+        verts, faces, normals, _ = marching_cubes(smooth_data, level=toml_i["isovalue"], step_size=data_toml["view"]["roughness"])    
     else:
         # 等値面を抽出
-        verts, faces, normals, _ = marching_cubes(data1_extended, level=data_toml["isovalue"], step_size=data_toml["view"]["roughness"])    
+        verts, faces, normals, _ = marching_cubes(data1_extended, level=toml_i["isovalue"], step_size=data_toml["view"]["roughness"])    
 
         #verts, faces2, _, _ = marching_cubes(data1, level=isovalue, step_size=3)
     
@@ -345,11 +433,25 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
 
 
     # ⭐ 数値データをRGBAカラーに変換する ⭐
-    norm = colors.Normalize(vmin=data_toml["min_value"], vmax=data_toml["max_value"])
+    norm = colors.Normalize(vmin=toml_i["min_value"], vmax=toml_i["max_value"])
     #cmap = cm.get_cmap('RdYlBu')  # カラーマップを選択'coolwarm'
-    cmap = colors.LinearSegmentedColormap.from_list(data_toml["color_list"]["name"], data_toml["color_list"]["colors"]) 
+    cmap = colors.LinearSegmentedColormap.from_list(toml_i["color_name"], toml_i["colors"]) 
     face_colors_rgba = cmap(norm(color_values))  # RGBAに変換！
 
+    lattice1, verts_transformed, faces2, face_colors_rgba = create_supercell(lattice1, verts_transformed, faces2, face_colors_rgba, supercell_size=data_toml["view"]["supercell"])
+
+    if (toml_i["color_bar"]):
+        ############  set color bar  ##############
+        # カラーバーを追加
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.5, aspect=20)
+        cbar.outline.set_linewidth(0.2)
+        cbar.set_ticks([toml_i["min_value"], toml_i["max_value"]])
+        #cbar.locator = MaxNLocator(nbins=2)  # 目盛りを5個に設定
+        #cbar.update_ticks()  # 目盛りを更新
+        # 目盛り線（tick marks）を非表示にする
+        cbar.ax.tick_params(axis='both', which='both', length=0)
     #print(face_colors_rgba.shape)
     #print(faces.shape)
     #print(verts.shape)
@@ -361,10 +463,10 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
 #        centroid = np.mean(verts_transformed, axis=0)
         
         # **全頂点を重心の逆方向に移動**
-        verts_transformed = verts_transformed - centroid
+        verts_transformed = verts_transformed - centroid + np.array(data_toml["view"]["translate"])
 
 
-    poly3d = Poly3DCollection(verts_transformed[faces2], facecolors=face_colors_rgba, linewidths=0.01, edgecolors=face_colors_rgba, alpha=data_toml["color_list"]["alpha"], shade=data_toml["color_list"]["shade"], zorder=10)
+    poly3d = Poly3DCollection(verts_transformed[faces2], facecolors=face_colors_rgba, linewidths=0.01, edgecolors=face_colors_rgba, alpha=toml_i["alpha"], shade=toml_i["shade"], zorder=10)
     ax.add_collection3d(poly3d)
 
     #rendering_by_blender(data_toml,verts_transformed, faces2)
@@ -398,7 +500,7 @@ def plot_lattice_box(ax, data_toml, data_cube):
         v1 + v2 + v3
     ])
 
-    box_vertices = box_vertices + np.array(origin) - centroid
+    box_vertices = box_vertices + np.array(origin) - centroid + np.array(data_toml["view"]["translate"]) 
     
     # ボックスの12本のエッジを定義
     edges = [
@@ -408,6 +510,8 @@ def plot_lattice_box(ax, data_toml, data_cube):
         [3, 5], [3, 6],          # v3 からのエッジ
         [4, 7], [5, 7], [6, 7]   # 最後の3つのエッジ
     ]
+
+    lattice, box_vertices, edges, edge_colors = create_supercell(lattice, box_vertices, faces=np.array(edges), supercell_size=data_toml["view"]["supercell"])
 
     #for edge in edges:
     #    p1, p2 = box_vertices[edge]
@@ -436,7 +540,6 @@ def plot_lattice_box(ax, data_toml, data_cube):
         else:
             lines_behind.append([p1,p2])
 
-    
     # **Line3DCollection の作成**
     line_collection_front = Line3DCollection(lines_front, colors="black", linewidths=0.5, zorder=1)
     line_collection_behind = Line3DCollection(lines_behind, colors="black", linewidths=0.5, zorder=100)

@@ -13,6 +13,7 @@ class Data_cube:
                  valence = None,   # int
                  positions_bohr = None,  # bohr, coordinate of atoms
                  positions_ang = None,  # Ang, coordinate of atoms
+                 indices = None,
                  origin = None, # Ang
                  num_mesh = None,
                  mesh_vec = None, # Ang primitive vector for mesh
@@ -63,11 +64,13 @@ class Data_cube:
             self.numbers = []
             self.valence = []
             self.positions_bohr = []
-            for _ in range(self.atomnum):
+            self.indices = []
+            for i in range(self.atomnum):
                 line = next(file).split()
                 self.numbers.append(line[0])
                 self.valence.append(line[1])
                 self.positions_bohr.append([float(coord) for coord in line[2:5]])
+                self.indices.append(i+1)
 
                           ## convert bohr to Angstrom unit
             self.positions_ang = []
@@ -138,11 +141,13 @@ class Data_cube:
             self.numbers = []
             self.valence = []
             self.positions_bohr = []
-            for _ in range(self.atomnum):
+            self.indices = []
+            for i in range(self.atomnum):
                 line = next(file).split()
                 self.numbers.append(line[0])
                 self.valence.append(line[1])
                 self.positions_bohr.append([float(coord) for coord in line[2:5]])
+                self.indices.append(i+1)
 
             ## convert bohr to Angstrom unit
             self.positions_ang = []
