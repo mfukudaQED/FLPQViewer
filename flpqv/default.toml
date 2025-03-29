@@ -1,42 +1,69 @@
-# input file for iso surface with color value
+# input file
 
-cube1 = "flpq/LPQ/LPQ.kinetic_energy_density.cube"
+
+[show]
+structure = true
+isosurface = true
+lattice = true
+axis = false
+
+[structure]
+cube_header = "flpq/LPQ/LPQ.kinetic_energy_density.cube"
+bond_factor = 1.6
+bond_size_ratio = 1.0
+atom_size_ratio = 0.5
+color_atoms = false
+number = false
+element = false
+
+[isosurface]
+### For surface plot ###
+cube1 = "flpq/LPQ/LPQ.kinetic_energy_density.cube" 
+### For surface color ###
 cube2 = "flpq_ew/LPQ/LPQ.chemical_potential.cube"
-
 isovalue = 0.00001
 max_value = -0.2
 min_value = -0.7
-
-periodicity = [0,0,0] # 0:off, 1:on
-supercell = [1,1,1]
-
-
-show_plot = false
-show_structure = true
-show_isosurface = false
-show_lattice = false
-show_axis = false
-show_color_bar = true
-output_name = "chempot"
-save_pdf = true
-save_obj = false
+periodicity = [0,0,0] # 0:off, 1:on for boundary condition
+### Color bar setting ###
+color_bar = true
+color_name = "blue_green_red"
+colors = ["#0000FF", "#00FFFF", "#00C600", "#FFFF00", "#FF0000"]
+alpha = 0.5
+shade = false
+smooth = true
 
 [view]
+roughness = 3
+supercell = [1,1,1]
 elev = -90
 azim = 90
 ratio_zoom = 1.0
 project_type = "ortho"  # ortho / persp
 centering = true
-roughness = 3
-bond_factor = 1.6
-bond_size_ratio = 1.0
-atom_size_ratio = 0.5
+translate = [0.0, 0.0, 0.0]
+
+[save]
+interactive = true
+output_name = "chempot"
+pdf = false
+obj = false
 
 
-[color_list]
-name = "blue_green_red"
-colors = ["#0000FF", "#00FFFF", "#00C600", "#FFFF00", "#FF0000"]
-alpha = 0.5
-shade = false
-smooth = true
-color_atoms = false
+#[builder]
+#supercell = [1,1,1]
+#pop = [] # list of atoms
+#
+#
+#[builder.task1]
+#task = true
+#export = "INPUT.dat" # "out.cif"
+#[builder.task1.group]
+#atoms = [1,2] # list of atoms
+#translate = [0.0, 0.0, 0.0]
+##copy = [0.0, 0.0, 0.0]
+#
+#[builder.task1.group.rotate]
+#center = [0.0, 0.0, 0.0]
+#euler_angle = [0.0, 0.0] # phi, theta
+

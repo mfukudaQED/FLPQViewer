@@ -209,6 +209,8 @@ def create_supercell(verts, faces, supercell_size=(1, 1, 1)):
 def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
     """ cube1の等値面を描き、その上にcube2のデータをカラーマップ＆等高線として描く """
 
+    toml_i = data_toml["isosurface"]
+
     #print(repr(data_cube2))
 
     origin1       = data_cube1.origin
@@ -243,9 +245,9 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
 
     # ** 周期境界条件のために 1 周期分拡張 **
     wpad = [0,0,0]
-    wpad[0] = int(data_toml["periodicity"][0])
-    wpad[1] = int(data_toml["periodicity"][1])
-    wpad[2] = int(data_toml["periodicity"][2])
+    wpad[0] = int(toml_i["periodicity"][0])
+    wpad[1] = int(toml_i["periodicity"][1])
+    wpad[2] = int(toml_i["periodicity"][2])
     #data1_extended = np.pad(data1, pad_width=((1, 1), (1, 1), (1, 1)), mode='wrap')   
     data1_extended = np.pad(data1, pad_width=((wpad[0], wpad[0]), (wpad[1], wpad[1]), (wpad[2], wpad[2])), mode='wrap')   
     data2_extended = np.pad(data2, pad_width=((0, wpad[0]), (0, wpad[1]), (0, wpad[2])), mode='wrap')   
@@ -254,15 +256,15 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
     y2_cubes = np.linspace(0, data_cube2.num_mesh[1], data_cube2.num_mesh[1]+wpad[1])
     z2_cubes = np.linspace(0, data_cube2.num_mesh[2], data_cube2.num_mesh[2]+wpad[2])
 
-    if (data_toml["color_list"]["smooth"]):
+    if (toml_i["smooth"]):
         # データをスムージング
         smooth_data = gaussian_filter(data1_extended, sigma=0.8)  # sigmaを調整（大きいほど滑らか）
 
         # スムージング後のデータで等値面を抽出
-        verts, faces, normals, _ = marching_cubes(smooth_data, level=data_toml["isovalue"], step_size=data_toml["view"]["roughness"])    
+        verts, faces, normals, _ = marching_cubes(smooth_data, level=toml_i["isovalue"], step_size=data_toml["view"]["roughness"])    
     else:
         # 等値面を抽出
-        verts, faces, normals, _ = marching_cubes(data1_extended, level=data_toml["isovalue"], step_size=data_toml["view"]["roughness"])    
+        verts, faces, normals, _ = marching_cubes(data1_extended, level=toml_i["isovalue"], step_size=data_toml["view"]["roughness"])    
 
         #verts, faces2, _, _ = marching_cubes(data1, level=isovalue, step_size=3)
     
@@ -341,10 +343,26 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
 
 
     # ⭐ 数値データをRGBAカラーに変換する ⭐
-    norm = colors.Normalize(vmin=data_toml["min_value"], vmax=data_toml["max_value"])
+    norm = colors.Normalize(vmin=toml_i["min_value"], vmax=toml_i["max_value"])
     #cmap = cm.get_cmap('RdYlBu')  # カラーマップを選択'coolwarm'
-    cmap = colors.LinearSegmentedColormap.from_list(data_toml["color_list"]["name"], data_toml["color_list"]["colors"]) 
+    cmap = colors.LinearSegmentedColormap.from_list(toml_i["color_name"], toml_i["colors"]) 
     face_colors_rgba = cmap(norm(color_values))  # RGBAに変換！
+
+    if (toml_i["color_bar"]):
+        ############  set color bar  ##############
+        # カラーバーを追加
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.5, aspect=20)
+        cbar.outline.set_linewidth(0.2)
+        cbar.set_ticks([toml_i["min_value"], toml_i["max_value"]])
+        #cbar.locator = MaxNLocator(nbins=2)  # 目盛りを5個に設定
+        #cbar.update_ticks()  # 目盛りを更新
+        # 目盛り線（tick marks）を非表示にする
+        cbar.ax.tick_params(axis='both', which='both', length=0)
+
+
+
 
     #print(face_colors_rgba.shape)
     #print(faces.shape)
@@ -360,7 +378,7 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
         verts_transformed = verts_transformed - centroid
 
 
-    poly3d = Poly3DCollection(verts_transformed[faces2], facecolors=face_colors_rgba, linewidths=0.01, edgecolors=face_colors_rgba, alpha=data_toml["color_list"]["alpha"], shade=data_toml["color_list"]["shade"], zorder=10)
+    poly3d = Poly3DCollection(verts_transformed[faces2], facecolors=face_colors_rgba, linewidths=0.01, edgecolors=face_colors_rgba, alpha=toml_i["alpha"], shade=toml_i["shade"], zorder=10)
     ax.add_collection3d(poly3d)
 
     #rendering_by_blender(data_toml,verts_transformed, faces2)

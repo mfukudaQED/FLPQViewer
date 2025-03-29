@@ -6,3 +6,5 @@ scikit-image
 matplotlib
 watchdog
 sphinx
+notebook
+plotly

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flpqv"
-version = "0.1.0"
+version = "0.1.2"
 description = "FLPQ Viewer"
 authors = [{ name = "Masahiro FUKUDA", email = "masahiro.fukuda@issp.u-tokyo.ac.jp" }]
 license = "MIT"
@@ -18,7 +18,9 @@ dependencies = [
     "scikit-image",
     "matplotlib",
     "watchdog",
-    "sphinx"
+    "sphinx",
+    "notebook",
+    "plotly"
 ]
 
 [tool.setuptools.packages.find]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flpqv
-Version: 0.1.0
+Version: 0.1.1
 Summary: FLPQ Viewer
 Author-email: Masahiro FUKUDA <masahiro.fukuda@issp.u-tokyo.ac.jp>
 License-Expression: MIT
@@ -14,6 +14,8 @@ Requires-Dist: scikit-image
 Requires-Dist: matplotlib
 Requires-Dist: watchdog
 Requires-Dist: sphinx
+Requires-Dist: notebook
+Requires-Dist: plotly
 
 # About
 FLPQViewer is a code to visualize local physical quantities.

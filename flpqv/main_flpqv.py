@@ -23,7 +23,7 @@ from watchdog.events import FileSystemEventHandler
 import matplotlib.pyplot as plt
 
 
-from plot_figures import plot_figures
+from show_figures import show_figures
 
 
 def read_toml(toml_file):
@@ -75,11 +75,11 @@ def deep_update(original, new):
 check_update_flag = True
 # ファイル変更を検知するクラス
 class TomlChangeHandler(FileSystemEventHandler):
-    def __init__(self, plot_queue, process2, toml_file, default_config, data_toml):
+    def __init__(self, queue, process2, toml_file, default_config, data_toml):
         super().__init__()
         self.toml_file = toml_file
         self.default_config = default_config
-        self.plot_queue = plot_queue
+        self.queue = queue
         self.process = process2
 
     def on_modified(self, event):
@@ -92,7 +92,7 @@ class TomlChangeHandler(FileSystemEventHandler):
 
                 self.process.terminate()
                 self.process.join()
-                self.process = multiprocessing.Process(target=plot_figures, args=(data_toml,))
+                self.process = multiprocessing.Process(target=show_figures, args=(data_toml,))
                 self.process.start()
 
                 check_update_flag = False
@@ -101,9 +101,9 @@ class TomlChangeHandler(FileSystemEventHandler):
 
 
 # 監視を開始する関数
-def start_watching(plot_queue, process2, toml_file, default_config, data_toml):
+def start_watching(queue, process2, toml_file, default_config, data_toml):
 
-    event_handler = TomlChangeHandler(plot_queue, process2, toml_file, default_config, data_toml)
+    event_handler = TomlChangeHandler(queue, process2, toml_file, default_config, data_toml)
     observer = Observer()
     observer.schedule(event_handler, ".", recursive=False)
     observer.start()
@@ -111,31 +111,36 @@ def start_watching(plot_queue, process2, toml_file, default_config, data_toml):
     
     try:
         while True:
+            if not process2.is_alive():  # プロセスが終了していたらループを抜ける
+                print("Process2 has terminated.")
+                observer.stop()
+                break
+
             time.sleep(1)
     except KeyboardInterrupt:
         observer.stop()
+
     observer.join()
     process2.terminate()
     process2.join()
-    sys.exit(0)
 
 
-#def plot_figures_interactive(plot_queue, process2):
+#def plot_figures_interactive(queue, process2):
 #    while True:
 #        try:
 #            # キューからデータを取得
-#            print("waiting plot_queue_get")
-#            data_toml = plot_queue.get()
+#            print("waiting queue_get")
+#            data_toml = queue.get()
 #            process2.terminate()
 #            process2.join()
 #            process2 = multiprocessing.Process(target=plot_figures, args=(data_toml,))
 #            process2.start()
 #            #plot_figures(data_toml)      
 #
-#            #data_toml = plot_queue.get()
+#            #data_toml = queue.get()
 #            #process2.terminate()
-#            ##data_toml = plot_queue.get(timeout=1)
-#            #process2 = multiprocessing.Process(target=plot_figures_interactive, args=(plot_queue,))
+#            ##data_toml = queue.get(timeout=1)
+#            #process2 = multiprocessing.Process(target=plot_figures_interactive, args=(queue,))
 #            #process2.start()
 #            ##plt.close()
 #            #plot_figures(data_toml)
@@ -180,20 +185,27 @@ if __name__ == '__main__':
     data_toml = deep_update(default_config, user_config)
 
 
-    if(data_toml["show_plot"]):
+    if(data_toml["save"]["interactive"]):
         
 
-        plot_queue = multiprocessing.Queue()
+        queue = multiprocessing.Queue()
 
         multiprocessing.set_start_method("spawn", force=True)
 
-        process2 = multiprocessing.Process(target=plot_figures, args=(data_toml,))
+        process2 = multiprocessing.Process(target=show_figures, args=(data_toml,))
         process2.start()
 
-        start_watching(plot_queue, process2, toml_file, default_config, data_toml)
+        start_watching(queue, process2, toml_file, default_config, data_toml)
 
 
-    plot_figures(data_toml)
+    if( data_toml["save"]["pdf"] or
+        data_toml["save"]["png"] or
+        data_toml["save"]["obj"]):
+
+        data_toml["save"]["interactive"] = False
+        show_figures(data_toml)
+
+    sys.exit(0)
 
     #plot_isosurface("LPQ.kinetic_energy_density.cube", "LPQ.chemical_potential.cube", max_value=-0.20, min_value=-0.38, isovalue=0.00001, contour_levels=5)
     #plot_isosurface("LPQ.kinetic_energy_density.cube", "LPQ.chemical_potential.cube", max_value=-0.175, min_value=-0.2, isovalue=0.00001, contour_levels=5)

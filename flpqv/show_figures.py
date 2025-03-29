@@ -16,8 +16,62 @@ from plot_data import plot_structure
 from plot_data import plot_isosurface
 from plot_data import plot_lattice_box
 
+def get_perpendicular_scale(ax):
+    """Compute the scale on the plane perpendicular to the current view direction."""
+    proj = ax.get_proj()
 
-def plot_figures(data_toml):
+    # Extract scale factors from projection matrix
+    scale_x = abs(proj[0, 0])
+    scale_y = abs(proj[1, 1])
+    scale_z = abs(proj[2, 2])
+
+    # Get view angles
+    elev = np.radians(ax.elev)  # Convert to radians
+    azim = np.radians(ax.azim)
+
+    # Compute view direction vector (forward direction)
+    view_dir = np.array([
+        np.cos(elev) * np.cos(azim),
+        np.cos(elev) * np.sin(azim),
+        np.sin(elev)
+    ])
+
+    # Find two perpendicular unit vectors (u, v) forming a plane
+    if abs(view_dir[2]) < 0.9:  # If not too close to z-axis
+        u = np.cross(view_dir, [0, 0, 1])  # Perpendicular to z-axis
+    else:
+        u = np.cross(view_dir, [0, 1, 0])  # Perpendicular to y-axis
+    u /= np.linalg.norm(u)
+
+    v = np.cross(view_dir, u)
+    v /= np.linalg.norm(v)
+
+    # Compute effective scale along u and v
+    scale_u = np.sqrt((u[0] * scale_x) ** 2 + (u[1] * scale_y) ** 2 + (u[2] * scale_z) ** 2)
+    scale_v = np.sqrt((v[0] * scale_x) ** 2 + (v[1] * scale_y) ** 2 + (v[2] * scale_z) ** 2)
+
+    # Take the average or the maximum for a stable estimate
+    scale_perp = (scale_u + scale_v) / 2
+
+    return scale_perp
+
+
+def update_fontsize(event, ax, fig, text_objects, atom_size_ratio):
+    """Dynamically update font size based on zoom level."""
+    #proj = ax.get_proj()  # Get the projection matrix
+    #scale = max(np.abs(proj[0, 0]), np.abs(proj[1, 1]), np.abs(proj[2, 2])) # Use scale factor from projection
+    scale_perp = get_perpendicular_scale(ax)
+
+    for text, text_color, text_fontsize in text_objects:
+        new_size = text_fontsize / scale_perp
+        #print(new_size)
+        #new_size = max(atom_size_ratio / scale, 5)  # Adjust font size, with a lower limit
+        #new_size = max(text_fontsize / scale, 5)  # Adjust font size, with a lower limit
+        text.set_fontsize(new_size)
+
+    fig.canvas.draw_idle()
+
+def show_figures(data_toml):
     # 3Dプロット
 
     setting = plot_style.Plot_style_1d()
@@ -42,19 +96,34 @@ def plot_figures(data_toml):
     ax.set_zlabel("Z")
 
     ############  データのプロット  ##############
-    data_cube1 = Data_cube()                                                                                                                                         
-    data_cube1.read(data_toml["cube1"])
-    data_cube2 = Data_cube()                                                                                                                                         
-    data_cube2.read(data_toml["cube2"])
+    flag_lattice_box = True
+    text_objects = []
 
-    if(data_toml["show_structure"]):
-        plot_structure(ax, data_toml, data_cube1)
+    if(data_toml["show"]["structure"]):
+        data_cube_header = Data_cube()                                                                                                                                         
+        data_cube_header.read_header(data_toml["structure"]["cube_header"])
 
-    if(data_toml["show_isosurface"]):
-        plot_isosurface(ax, data_toml, data_cube1, data_cube2)
+        plot_structure(ax, text_objects, data_toml, data_cube_header)
+        #atom_size_ratio = float(data_toml["structure"]["atom_size_ratio"])
+        #fig.canvas.mpl_connect("draw_event", lambda event: update_fontsize(event, ax, fig, text_objects, atom_size_ratio))
 
-    if (data_toml["show_lattice"]):
-        plot_lattice_box(ax, data_toml, data_cube1)
+        if (data_toml["show"]["lattice"]):
+            if(flag_lattice_box):
+                plot_lattice_box(ax, data_toml, data_cube_header)
+                flag_lattice_box = False
+
+
+    if(data_toml["show"]["isosurface"]):
+        data_cube1_iso = Data_cube()                                                                                                                                         
+        data_cube1_iso.read(data_toml["isosurface"]["cube1"])
+        data_cube2_iso = Data_cube()                                                                                                                                         
+        data_cube2_iso.read(data_toml["isosurface"]["cube2"])
+        plot_isosurface(ax, data_toml, data_cube1_iso, data_cube2_iso)
+        if (data_toml["show"]["lattice"]):
+            if(flag_lattice_box):
+                plot_lattice_box(ax, data_toml, data_cube1_iso)
+                flag_lattice_box = False
+
 
     ######################################
 
@@ -88,26 +157,10 @@ def plot_figures(data_toml):
     ax.set_zlim([z_mid - max_range, z_mid + max_range])
 
     # 軸を非表示
-    if not (data_toml["show_axis"]):
+    if not (data_toml["show"]["axis"]):
         ax.set_axis_off()
 
 
-    if (data_toml["show_isosurface"]):
-        if (data_toml["show_color_bar"]):
-            ############  set color bar  ##############
-            # カラーバーを追加
-            norm = colors.Normalize(vmin=data_toml["min_value"], vmax=data_toml["max_value"])
-            #cmap = cm.get_cmap('RdYlBu')  # カラーマップを選択'coolwarm'
-            cmap = colors.LinearSegmentedColormap.from_list(data_toml["color_list"]["name"], data_toml["color_list"]["colors"]) 
-            sm = cm.ScalarMappable(cmap=cmap, norm=norm)
-            sm.set_array([])
-            cbar = plt.colorbar(sm, ax=ax, shrink=0.5, aspect=20)
-            cbar.outline.set_linewidth(0.2)
-            cbar.set_ticks([data_toml["min_value"], data_toml["max_value"]])
-            #cbar.locator = MaxNLocator(nbins=2)  # 目盛りを5個に設定
-            #cbar.update_ticks()  # 目盛りを更新
-            # 目盛り線（tick marks）を非表示にする
-            cbar.ax.tick_params(axis='both', which='both', length=0)
 
 
     ############  set view  ##############
@@ -118,11 +171,10 @@ def plot_figures(data_toml):
     ax.set_proj_type('ortho')
 
 
-    if (data_toml["show_plot"]):
-        print("show plot start")
+    if (data_toml["save"]["interactive"]):
+        print("interactive plot start")
         plt.show(block=True)
         print("show plot end")
-        #plt.pause(1.0)
         #plt.draw()
         #plt.pause(1.0)
 
@@ -143,14 +195,14 @@ def plot_figures(data_toml):
         #canvas.show()
 
 
-    if (data_toml["save_pdf"]):
-        plt.savefig(data_toml["output_name"] + ".pdf", bbox_inches='tight')
+    if (data_toml["save"]["pdf"]):
+        plt.savefig(data_toml["save"]["output_name"] + ".pdf", bbox_inches='tight')
         #plt.savefig("chempot.pdf", bbox_inches='tight', pad_inches=0)
 
-    if (data_toml["save_obj"]):
+    if (data_toml["save"]["obj"]):
         write_obj_and_mtl(verts_transformed, faces2, face_colors_rgba, \
-                          obj_filename=data_toml["output_name"] + ".obj", \
-                          mtl_filename=data_toml["output_name"] + ".mtl")
+                          obj_filename=data_toml["save"]["output_name"] + ".obj", \
+                          mtl_filename=data_toml["save"]["output_name"] + ".mtl")
         #export_gltf(verts_transformed.astype(np.float32), face_colors_rgba.astype(np.float32), faces2.astype(np.int32), normals.astype(np.float32))
 
 
@@ -329,7 +381,7 @@ def rendering_by_blender(data_toml,vertices, faces):
     bpy.ops.object.delete()
 
     ## **OBJ ファイルをインポート**
-    #bpy.ops.import_scene.obj(filepath=data_toml["output_name"] + ".obj")
+    #bpy.ops.import_scene.obj(filepath=data_toml["save"]["output_name"] + ".obj")
     #obj = bpy.context.selected_objects[0]
 
     # **新しいメッシュを作成**
@@ -399,7 +451,7 @@ def rendering_by_blender(data_toml,vertices, faces):
     bpy.context.scene.render.engine = 'CYCLES'  # 高品質レンダリング
     bpy.context.scene.render.image_settings.file_format = 'PNG'
     output_dir = os.path.dirname(bpy.data.filepath) if bpy.data.filepath else os.getcwd()
-    output_path = os.path.join(output_dir, "output.png")
+    output_path = os.path.join(output_dir, data_toml["save"]["output_name"]+".png")
     bpy.context.scene.render.filepath = output_path  # 保存パス
     
     # **レンダリング開始**

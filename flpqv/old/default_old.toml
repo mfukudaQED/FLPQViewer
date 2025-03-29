@@ -1,0 +1,42 @@
+# input file for iso surface with color value
+
+cube1 = "flpq/LPQ/LPQ.kinetic_energy_density.cube"
+cube2 = "flpq_ew/LPQ/LPQ.chemical_potential.cube"
+
+isovalue = 0.00001
+max_value = -0.2
+min_value = -0.7
+
+periodicity = [0,0,0] # 0:off, 1:on
+supercell = [1,1,1]
+
+
+show_plot = false
+show_structure = true
+show_isosurface = false
+show_lattice = false
+show_axis = false
+show_color_bar = true
+output_name = "chempot"
+save_pdf = true
+save_obj = false
+
+[view]
+elev = -90
+azim = 90
+ratio_zoom = 1.0
+project_type = "ortho"  # ortho / persp
+centering = true
+roughness = 3
+bond_factor = 1.6
+bond_size_ratio = 1.0
+atom_size_ratio = 0.5
+
+
+[color_list]
+name = "blue_green_red"
+colors = ["#0000FF", "#00FFFF", "#00C600", "#FFFF00", "#FF0000"]
+alpha = 0.5
+shade = false
+smooth = true
+color_atoms = false
