@@ -198,12 +198,16 @@ if __name__ == '__main__':
         start_watching(queue, process2, toml_file, default_config, data_toml)
 
 
-    if( data_toml["save"]["pdf"] or
-        data_toml["save"]["png"] or
-        data_toml["save"]["obj"]):
+    try:
+        if( data_toml["save"]["pdf"] or
+            data_toml["save"]["png"] or
+            data_toml["save"]["Plotly"] or
+            data_toml["save"]["obj"]):
 
-        data_toml["save"]["interactive"] = False
-        show_figures(data_toml)
+            data_toml["save"]["interactive"] = False
+            show_figures(data_toml)
+    except KeyError:
+        pass
 
     sys.exit(0)
 

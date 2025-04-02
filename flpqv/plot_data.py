@@ -18,7 +18,10 @@ from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 import plotly.graph_objects as go
+
 
 
 #
@@ -36,7 +39,7 @@ def get_text_color(rgb):
     luminance = 0.299 * rgb01[0] + 0.587 * rgb01[1] + 0.114 * rgb01[2]
     return "black" if luminance > 0.5 else "white"
 
-def plot_structure(ax, text_objects, data_toml, data_cube):
+def plot_structure(figp, ax, text_objects, data_toml, data_cube):
     """
     原子構造をプロットするコード
     """
@@ -97,10 +100,14 @@ def plot_structure(ax, text_objects, data_toml, data_cube):
 
 
     # **円柱（bond）をプロットする関数**
-    def plot_cylinder(ax, p1, p2, radius=0.2, n=20, r_atom1=0.3, r_atom2=0.3):
+    def plot_cylinder(ax, norm, cmap, p1, p2, radius=0.2, n=20, r_atom1=0.3, r_atom2=0.3):
         """ p1, p2 を結ぶ円柱を描画（原子半径を考慮） """
         v = np.array(p2) - np.array(p1)  # ベクトル p1 → p2
         length = np.linalg.norm(v)  # 円柱の高さ
+        if (toml_s["color_bonds"]):
+            color = cmap(norm(length))  # RGBAに変換！
+        else:
+            color = "white"
 
         # **bond の端点を原子表面にシフト**
         delta_r1 = np.sqrt(float(r_atom1)*float(r_atom1) - float(radius)*float(radius))
@@ -134,7 +141,7 @@ def plot_structure(ax, text_objects, data_toml, data_cube):
         x, y, z = xyz[0].reshape(x.shape) + p1_new[0], xyz[1].reshape(y.shape) + p1_new[1], xyz[2].reshape(z.shape) + p1_new[2]
     
         # プロット
-        ax.plot_surface(x, y, z, color="white", alpha=1.0, linewidth=0.0, antialiased=True, zorder=25)
+        ax.plot_surface(x, y, z, color=color, alpha=1.0, linewidth=0.0, antialiased=True, zorder=25)
 
         vertices = np.array([x.ravel(), y.ravel(), z.ravel()]).T
         faces = []
@@ -148,24 +155,46 @@ def plot_structure(ax, text_objects, data_toml, data_cube):
                 faces.append([q1, q2, q3])  # 三角形1
                 faces.append([q2, q4, q3])  # 三角形2
 
-        return vertices, faces
+        return vertices, faces, color, length
 
+
+
+    norm = colors.Normalize(vmin=toml_s["min_bond"], vmax=toml_s["max_bond"])
+    cmap = colors.LinearSegmentedColormap.from_list(toml_s["color_name_bond"], toml_s["colors_bond"]) 
+    if (toml_s["color_bar_bond"]):
+        ############  set color bar  ##############
+        # カラーバーを追加
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        #divider = make_axes_locatable(ax)
+        #cax_bond = divider.append_axes("right", size="5%", pad=0.1)
+        #cbar = plt.colorbar(sm, ax=cax_bond, shrink=0.5, aspect=20, label="bond")
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.5, aspect=20, label="bond")
+        cbar.outline.set_linewidth(0.2)
+        cbar.set_ticks([toml_s["min_bond"], toml_s["max_bond"]])
+        cbar.locator = MaxNLocator(nbins=2)  # 目盛りを5個に設定
+        #cbar.update_ticks()  # 目盛りを更新
+        # 目盛り線（tick marks）を非表示にする
+        cbar.ax.tick_params(axis='both', which='both', length=0)
 
     # **すべての結合を円柱で描画**
+    list_vertices_faces_bond= []
     for i, j in bonds:
-        plot_cylinder(ax, positions[i], positions[j], radius=0.1*bond_size_ratio,
-                                    r_atom1=data_atoms.size[numbers[i]]*atom_size_ratio,
-                                    r_atom2=data_atoms.size[numbers[j]]*atom_size_ratio)
+        vertices, faces, color, length = plot_cylinder(ax, norm, cmap, positions[i], positions[j], radius=0.1*bond_size_ratio,
+                                                r_atom1=data_atoms.size[numbers[i]]*atom_size_ratio,
+                                                r_atom2=data_atoms.size[numbers[j]]*atom_size_ratio)
+        list_vertices_faces_bond.append((vertices, faces, color, length))
+
 
     #proj = ax.get_proj()  # Get the projection matrix
     #scale = max(np.abs(proj[0, 0]), np.abs(proj[1, 1]), np.abs(proj[2, 2]))
 
     # 各原子を球でプロット
     list_vertices_faces_atom= []
-    list_face_colors = []
+    list_face_colors_atom = []
     for index, pos, num in zip(indices, positions, numbers):
         list_vertices_faces_atom.append(plot_sphere(ax, pos, data_atoms.size[num]*atom_size_ratio, data_atoms.color[num]))
-        list_face_colors.append(data_atoms.color[num]) 
+        list_face_colors_atom.append(data_atoms.color[num]) 
         text_color = get_text_color(hex_to_rgb(data_atoms.color[num]))
         #print(text_color)
         text_fontsize = 24*data_atoms.size[num]*atom_size_ratio*data_toml["view"]["ratio_zoom"]
@@ -195,19 +224,64 @@ def plot_structure(ax, text_objects, data_toml, data_cube):
     #)
 
     #figp = go.Figure(layout=layout)
-    #for index, tmp in enumerate(list_vertices_faces_atom):
-    #    i, j, k = zip(*tmp[1])
+    for index, tmp in enumerate(list_vertices_faces_atom):
+        i, j, k = zip(*tmp[1])
 
-    #    figp.add_trace(go.Mesh3d(
-    #        x=tmp[0][:, 0],  # x座標
-    #        y=tmp[0][:, 1],  # y座標
-    #        z=tmp[0][:, 2],  # z座標
-    #        i=i,     # 面の1番目の頂点インデックス
-    #        j=j,     # 面の2番目の頂点インデックス
-    #        k=k,     # 面の3番目の頂点インデックス
-    #        color = list_face_colors[index],
-    #        opacity=0.7        # 透明度
-    #    ))
+        figp.add_trace(go.Mesh3d(
+            x=tmp[0][:, 0],  # x座標
+            y=tmp[0][:, 1],  # y座標
+            z=tmp[0][:, 2],  # z座標
+            i=i,     # 面の1番目の頂点インデックス
+            j=j,     # 面の2番目の頂点インデックス
+            k=k,     # 面の3番目の頂点インデックス
+            color = list_face_colors_atom[index],
+            opacity=1.0,       # 透明度
+            flatshading=False,  # フラットシェーディングを無効にする
+            lighting=dict(
+                ambient=0.7,   # 環境光（全体の明るさ）
+                diffuse=0.9,   # 拡散光（物体の明るさ）
+                specular=1.0,  # 鏡面反射（光の反射）
+                roughness=0.2,  # 表面の粗さ
+                fresnel=0.2     # フレネル効果
+            ),
+            #lightposition=dict(
+            #    x=100,  # 光の位置（X軸）
+            #    y=100,  # 光の位置（Y軸）
+            #    z=100   # 光の位置（Z軸）
+            #)
+        ))
+
+    for tmp in list_vertices_faces_bond:
+        i, j, k = zip(*tmp[1])
+        if (toml_s["color_bonds"]):
+            color = f"rgb({255*tmp[2][0]}, {255*tmp[2][1]}, {255*tmp[2][2]})"
+        else:
+            color = "white"
+
+
+        figp.add_trace(go.Mesh3d(
+            x=tmp[0][:, 0],  # x座標
+            y=tmp[0][:, 1],  # y座標
+            z=tmp[0][:, 2],  # z座標
+            i=i,     # 面の1番目の頂点インデックス
+            j=j,     # 面の2番目の頂点インデックス
+            k=k,     # 面の3番目の頂点インデックス
+            color = color,
+            opacity=1.0,       # 透明度
+            flatshading=False,  # フラットシェーディングを無効にする
+            lighting=dict(
+                ambient=0.7,   # 環境光（全体の明るさ）
+                diffuse=0.9,   # 拡散光（物体の明るさ）
+                specular=1.0,  # 鏡面反射（光の反射）
+                roughness=0.2,  # 表面の粗さ
+                fresnel=0.2     # フレネル効果
+            ),
+            #lightposition=dict(
+            #    x=100,  # 光の位置（X軸）
+            #    y=100,  # 光の位置（Y軸）
+            #    z=100   # 光の位置（Z軸）
+            #)
+        ))
 
     #figp.write_html("output.html")
 
@@ -261,6 +335,9 @@ def create_supercell(lattice, verts, faces=None, face_colors=None, supercell_siz
     """
 
     sx, sy, sz = supercell_size
+    if (sx==1 and sy==1 and sz==1):
+        return lattice, verts, faces, face_colors
+
     new_verts = []
     new_faces = [] if faces is not None else None
     new_face_colors = [] if face_colors is not None else None
@@ -296,7 +373,7 @@ def create_supercell(lattice, verts, faces=None, face_colors=None, supercell_siz
 
     return new_lattice, new_verts, new_faces, new_face_colors
 
-def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
+def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2):
     """ cube1の等値面を描き、その上にcube2のデータをカラーマップ＆等高線として描く """
 
     toml_i = data_toml["isosurface"]
@@ -419,7 +496,15 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
 
     # cube2のデータを補間してカラーマッピング
     interp_func = RegularGridInterpolator((x2_cubes, y2_cubes, z2_cubes), data2_extended, bounds_error=False, fill_value=0)
-    color_values = interp_func(np.c_[x_surf2, y_surf2, z_surf2])
+    #color_values = interp_func(np.c_[x_surf2, y_surf2, z_surf2])
+
+    color_values = []
+    for face in faces2:
+        tmp = np.float64(0.0)
+        for vertex in verts2[face]:
+            tmp = tmp + interp_func(np.c_[vertex[0], vertex[1], vertex[2]])
+        tmp = tmp/len(verts2[face])
+        color_values.append(tmp)
 
     # しきい値 (s に近い点を抽出)
     #contour_level = -0.19
@@ -469,12 +554,40 @@ def plot_isosurface(ax, data_toml, data_cube1, data_cube2):
     poly3d = Poly3DCollection(verts_transformed[faces2], facecolors=face_colors_rgba, linewidths=0.01, edgecolors=face_colors_rgba, alpha=toml_i["alpha"], shade=toml_i["shade"], zorder=10)
     ax.add_collection3d(poly3d)
 
+
+    face_color_rgb = []
+    for tmp in np.squeeze(face_colors_rgba):
+        face_color_rgb.append(f"rgb({255*tmp[0]}, {255*tmp[1]}, {255*tmp[2]})")
+
+
+    figp.add_trace(go.Mesh3d(
+        x=verts_transformed[:,0],  # x座標.astype(np.float16)
+        y=verts_transformed[:,1],  # y座標
+        z=verts_transformed[:,2],  # z座標
+        i=faces2[:,0],     # 面の1番目の頂点インデックス
+        j=faces2[:,1],     # 面の2番目の頂点インデックス
+        k=faces2[:,2],     # 面の3番目の頂点インデックス
+        #color = face_color_rgb[index],
+        facecolor = face_color_rgb[:],
+        #intensity=color_values,  # 各メッシュごとの色
+        #colorscale="Viridis",
+        opacity=toml_i["alpha"],        # 透明度
+        flatshading=False,  # フラットシェーディングを無効にする
+        lighting=dict(
+            ambient=0.7,   # 環境光（全体の明るさ）
+            diffuse=0.9,   # 拡散光（物体の明るさ）
+            specular=1.0,  # 鏡面反射（光の反射）
+            roughness=0.2,  # 表面の粗さ
+            fresnel=0.2     # フレネル効果
+        ),
+    ))
+
     #rendering_by_blender(data_toml,verts_transformed, faces2)
 
     return
 
 
-def plot_lattice_box(ax, data_toml, data_cube):
+def plot_lattice_box(figp, ax, data_toml, data_cube):
 
     origin = data_cube.origin
 
@@ -554,5 +667,22 @@ def plot_lattice_box(ax, data_toml, data_cube):
     #    [1, 4, 7, 5], [2, 4, 7, 6], [3, 5, 7, 6]
     #]]
     #ax.add_collection3d(Poly3DCollection(faces, alpha=0.3, facecolor='cyan'))
+
+    lines = np.vstack([lines_front, lines_behind])
+    x, y, z = [], [], []
+    for line in lines:
+        for point in line:
+            x.append(point[0])
+            y.append(point[1])
+            z.append(point[2])
+        x.append(None)  # None を入れて線を区切る
+        y.append(None)
+        z.append(None)
+
+    figp.add_trace(go.Scatter3d(
+        x=x, y=y, z=z,
+        mode='lines',
+        line=dict(color='black', width=1)
+    ))
 
 

@@ -636,7 +636,7 @@ def plot_tensor_3d(data_tensor,data_cube,data_toml):
     # 目盛り線（tick marks）を非表示にする
     cbar.ax.tick_params(axis='both', which='both', length=0)
 
-    plot_plane(ax,data_cube)
+    #plot_plane(ax,data_cube)
     plot_structure(ax,data_toml,data_cube)
 
     plt.show()

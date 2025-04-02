@@ -3,8 +3,8 @@
 
 [show]
 structure = true
-isosurface = true
-lattice = true
+isosurface = false
+lattice = false
 axis = false
 
 [structure]
@@ -12,7 +12,15 @@ cube_header = "flpq/LPQ/LPQ.kinetic_energy_density.cube"
 bond_factor = 1.6
 bond_size_ratio = 1.0
 atom_size_ratio = 0.5
-color_atoms = false
+
+color_atoms = true
+color_bonds = false
+color_bar_bond = false
+color_name_bond = "blue_green_red"
+colors_bond = ["#0000FF", "#00FFFF", "#00C600", "#FFFF00", "#FF0000"]
+max_bond = 1.6
+min_bond = 1.3
+
 number = false
 element = false
 
@@ -48,6 +56,8 @@ interactive = true
 output_name = "chempot"
 pdf = false
 obj = false
+png = false
+Plotly = false
 
 
 #[builder]
