@@ -6,6 +6,7 @@ import numpy as np
 import trimesh
 
 from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import griddata
 from scipy.spatial.distance import cdist
 
 from skimage.measure import marching_cubes
@@ -373,7 +374,7 @@ def create_supercell(lattice, verts, faces=None, face_colors=None, supercell_siz
 
     return new_lattice, new_verts, new_faces, new_face_colors
 
-def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2):
+def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2, isovalue):
     """ cube1の等値面を描き、その上にcube2のデータをカラーマップ＆等高線として描く """
 
     toml_i = data_toml["isosurface"]
@@ -428,26 +429,29 @@ def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2):
         smooth_data = gaussian_filter(data1_extended, sigma=0.8)  # sigmaを調整（大きいほど滑らか）
 
         # スムージング後のデータで等値面を抽出
-        verts, faces, normals, _ = marching_cubes(smooth_data, level=toml_i["isovalue"], step_size=data_toml["view"]["roughness"])    
+        #verts, faces, normals, _ = marching_cubes(smooth_data, level=toml_i["isovalue"], step_size=data_toml["view"]["roughness"])    
+        verts, faces, normals, _ = marching_cubes(smooth_data, level=isovalue, step_size=data_toml["view"]["roughness"])    
+
+        valid_mask = np.logical_and.reduce([
+            (verts[:, 0] >= wpad[0]) & (verts[:, 0] <= smooth_data.shape[0]-wpad[0]),
+            (verts[:, 1] >= wpad[1]) & (verts[:, 1] <= smooth_data.shape[1]-wpad[1]),
+            #(verts[:, 2] >= wpad[2]) & (verts[:, 2] <= smooth_data.shape[2]-wpad[2])
+            (verts[:, 2] >= wpad[2]) & (verts[:, 2] <= smooth_data.shape[2]-wpad[2]-23)
+        ])
+
     else:
         # 等値面を抽出
-        verts, faces, normals, _ = marching_cubes(data1_extended, level=toml_i["isovalue"], step_size=data_toml["view"]["roughness"])    
+        verts, faces, normals, _ = marching_cubes(data1_extended, level=isovalue, step_size=data_toml["view"]["roughness"])    
 
         #verts, faces2, _, _ = marching_cubes(data1, level=isovalue, step_size=3)
     
-    # ** 元の範囲にある頂点のみをフィルタリング **
-    valid_mask = np.logical_and.reduce([
-        (verts[:, 0] >= wpad[0]) & (verts[:, 0] <= data1_extended.shape[0]-wpad[0]),
-        (verts[:, 1] >= wpad[1]) & (verts[:, 1] <= data1_extended.shape[1]-wpad[1]),
-        (verts[:, 2] >= wpad[2]) & (verts[:, 2] <= data1_extended.shape[2]-wpad[2])
-    ])
+        # ** 元の範囲にある頂点のみをフィルタリング **
+        valid_mask = np.logical_and.reduce([
+            (verts[:, 0] >= wpad[0]) & (verts[:, 0] <= data1_extended.shape[0]-wpad[0]),
+            (verts[:, 1] >= wpad[1]) & (verts[:, 1] <= data1_extended.shape[1]-wpad[1]),
+            (verts[:, 2] >= wpad[2]) & (verts[:, 2] <= data1_extended.shape[2]-wpad[2])
+        ])
 
-    #valid_mask = np.logical_and.reduce([
-    #    (verts[:, 0] >= 1) & (verts[:, 0] <= smooth_data.shape[0]-1),
-    #    (verts[:, 1] >= 1) & (verts[:, 1] <= smooth_data.shape[1]-1),
-    #    (verts[:, 2] >= 1) & (verts[:, 2] <= smooth_data.shape[2]-10)
-    #])
-      
     # mask後にフィルタリングしてずれたインデックス分をずらす。
     verts = verts[valid_mask]
     verts[:] = verts[:] - np.array([wpad[0],wpad[1],wpad[2]])
@@ -498,11 +502,45 @@ def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2):
     interp_func = RegularGridInterpolator((x2_cubes, y2_cubes, z2_cubes), data2_extended, bounds_error=False, fill_value=0)
     #color_values = interp_func(np.c_[x_surf2, y_surf2, z_surf2])
 
+
+    # すべての頂点のz座標を集める
+    all_z_values = [vertex[2] for face in faces2 for vertex in verts2[face]]
+    
+    # 最大値を計算
+    #max_z = max(all_z_values)
+    min_z = min(all_z_values)
+    max_z = max(all_z_values)
+
+    if (toml_i["plot_2d"]):
+        # Height of plane
+        #z_plane = min_z - 1.5
+        #z_plane = min_z - toml_i["plot_2d_z"]
+        z_plane = max_z + toml_i["plot_2d_z"]
+        r_s = 4.0
+        print(f"max_z: {max_z}")
+        print(f"plot_2d_z: {toml_i["plot_2d_z"]}")
+        print(f"z_plane: {z_plane}")
+        #alpha = 0.3
+
     color_values = []
     for face in faces2:
         tmp = np.float64(0.0)
         for vertex in verts2[face]:
-            tmp = tmp + interp_func(np.c_[vertex[0], vertex[1], vertex[2]])
+            if (toml_i["plot_2d"]):
+                tmp_mu = interp_func(np.c_[vertex[0], vertex[1], vertex[2]])
+                #alpha = np.sqrt(np.abs(tmp_mu))
+                alpha = -tmp_mu*2.0*r_s
+                #print(f"alpha: {alpha}")
+                #print(f"z: {vertex[2]}")
+                tmp = tmp - (1.0-alpha*(z_plane - vertex[2] + r_s)) *np.exp( -alpha*( z_plane - vertex[2] + r_s))
+                #tmp = tmp + (1.0+tmp_mu) *np.exp( -alpha*( z_plane - vertex[2] ))
+                ##tmp = tmp + tmp_mu *np.exp( alpha*( z_plane - vertex[2] ))
+                ##tmp = tmp - np.sqrt(np.abs(tmp_mu)) *np.exp( -alpha*( z_plane - vertex[2] ))
+                ##tmp = tmp - np.sqrt(np.abs(tmp_mu)) *np.exp( alpha*( z_plane - vertex[2] ))
+
+            else:
+                tmp = tmp + interp_func(np.c_[vertex[0], vertex[1], vertex[2]])
+
         tmp = tmp/len(verts2[face])
         color_values.append(tmp)
 
@@ -554,6 +592,8 @@ def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2):
     poly3d = Poly3DCollection(verts_transformed[faces2], facecolors=face_colors_rgba, linewidths=0.01, edgecolors=face_colors_rgba, alpha=toml_i["alpha"], shade=toml_i["shade"], zorder=10)
     ax.add_collection3d(poly3d)
 
+    #R, L_QR = project_and_distance(verts_transformed[faces2], normals[faces2], z_plane=3.0)
+    #plot_heatmap(R, L_QR, face_colors_rgba, alpha=1, cmap=cmap, resolution=200, method='cubic')
 
     face_color_rgb = []
     for tmp in np.squeeze(face_colors_rgba):
@@ -582,9 +622,156 @@ def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2):
         ),
     ))
 
+    plotly_colorscale = matplotlib_cmap_to_plotly_colorscale(cmap)
+    dummy_intensity = intensity = np.linspace(toml_i["min_value"], toml_i["max_value"], 3)
+    figp.add_trace(go.Mesh3d(
+        x=[0, 0, 0], y=[0, 0, 0], z=[0, 0, 0],
+        i=[0], j=[0], k=[0],
+        intensity=dummy_intensity,
+        colorscale=plotly_colorscale,
+        showscale=True,
+        opacity=0.0,
+        colorbar=dict(
+            title="",
+            len=0.75,
+            x=1.1,
+            tickvals=[toml_i["min_value"], toml_i["max_value"]],
+            ticktext=[str(toml_i["min_value"]), str(toml_i["max_value"])]
+        )
+    ))
+
     #rendering_by_blender(data_toml,verts_transformed, faces2)
 
     return
+
+def compute_centroids_and_normals(verts):
+    """
+    Compute centroid and face normal for each triangle.
+
+    Parameters
+    ----------
+    verts : (F, 3, 3) array
+        Vertices of each triangle.
+
+    Returns
+    -------
+    centroids : (F, 3) array
+        Centroid of each triangle.
+    face_normals : (F, 3) array
+        Unit normal vector of each triangle.
+    """
+    # Centroids: mean of the 3 vertices
+    centroids = verts.mean(axis=1)
+
+    # Edge vectors
+    v1 = verts[:, 1] - verts[:, 0]  # vector from vertex0->vertex1
+    v2 = verts[:, 2] - verts[:, 0]  # vector from vertex0->vertex2
+
+    # Cross product to get face normal
+    face_normals = np.cross(v1, v2)
+
+    # Normalize face normals
+    norm = np.linalg.norm(face_normals, axis=1, keepdims=True)
+    face_normals /= norm
+
+    return centroids, face_normals
+
+def project_and_distance(vertices, normals, z_plane):
+    """
+    Project points along normals to a plane at z=z_plane and compute distances.
+
+    Parameters
+    ----------
+    vertices : (N,3) array
+    normals : (N,3) array
+    z_plane : float
+
+    Returns
+    -------
+    R : (N,3) array
+        Intersection points on plane.
+    L_QR : (N,) array
+        Distance from Q to R.
+    """
+
+    centroids, face_normals = compute_centroids_and_normals(vertices)
+
+    Q = centroids
+    n = face_normals
+    Qz = Q[:, 2]
+    nz = n[:, 2]
+
+    mask = np.abs(nz) > 1e-12
+    t = np.full(Q.shape[0], np.nan)
+    t[mask] = (z_plane - Qz[mask]) / nz[mask]
+
+    R = Q.copy()
+    #R[mask] = Q[mask] + (t[mask, None] * n[mask])
+
+    # Distance between Q and R
+    L_QR = np.linalg.norm(R - Q, axis=1)
+
+    return R, L_QR
+
+# データ読み込み例（テスト用に乱数）
+# vertices = np.random.randn(100,3)
+# normals = np.random.randn(100,3)
+# R, L_QR = project_and_distance(vertices, normals, z_plane=0.0)
+
+def plot_heatmap(R, L_QR, face_colors_rgba, alpha, cmap, resolution=200, method='cubic'):
+    """
+    Create a heatmap of distances on the projected plane.
+
+    Parameters
+    ----------
+    R : (N,3) array
+        Intersection points on plane.
+    L_QR : (N,) array
+        Distance Q->R.
+    alpha : float
+        Decay rate for the exponential weight.
+    resolution : int
+        Number of grid points along each axis.
+    method : str
+        Interpolation method: 'linear', 'cubic', or 'nearest'.
+    """
+    R_x, R_y, R_z = R[:, 0], R[:, 1], R[:, 2]
+
+    # Define grid
+    #xi = np.linspace(R_x.min(), R_x.max(), resolution)
+    #yi = np.linspace(R_y.min(), R_y.max(), resolution)
+    xi = np.linspace(-5.0, 5.0, resolution)
+    yi = np.linspace(-5.0, 5.0, resolution)
+    XI, YI = np.meshgrid(xi, yi)
+
+    # Compute weights
+    min_val = np.min(L_QR)
+    w = np.exp(-alpha * (L_QR-min_val))
+    #face_colors_weighted = face_colors_rgba * w[:, None]
+
+    # Interpolate L_QR onto grid
+    ZI = griddata((R_x, R_y), R_z, (XI, YI), method=method)
+
+    # Plot heatmap
+    plt.figure(figsize=(6,6))
+    #cmap = 'inferno'
+    im = plt.imshow(
+        #ZI, origin='lower', extent=(R_x.min(), R_x.max(), R_y.min(), R_y.max()),
+        ZI, origin='lower', extent=(-5.0, 5.0, -5.0, 5.0),
+        cmap='inferno', vmin=0.0, vmax=1.0, 
+        aspect='equal'
+    )
+    plt.colorbar(im, label='Distance Q->R')
+    plt.xlabel('X on plane')
+    plt.ylabel('Y on plane')
+    plt.title('Heatmap of Distance Q->R projected on plane')
+    plt.tight_layout()
+    plt.savefig("2dplot.pdf")  # save as PDF here
+    plt.close()
+
+# 使用例:
+# R, L_QR = project_and_distance(vertices, normals, z_plane=0.0)
+# plot_heatmap(R, L_QR)
 
 
 def plot_lattice_box(figp, ax, data_toml, data_cube):
@@ -685,4 +872,21 @@ def plot_lattice_box(figp, ax, data_toml, data_cube):
         line=dict(color='black', width=1)
     ))
 
-
+def matplotlib_cmap_to_plotly_colorscale(cmap, n=256):
+    """
+    Convert a matplotlib colormap to a Plotly colorscale.
+    
+    Parameters:
+        cmap: A matplotlib colormap instance
+        n: Number of discrete colors to sample
+    
+    Returns:
+        List of [position, color] for Plotly colorscale
+    """
+    colorscale = []
+    for i in range(n):
+        frac = i / (n - 1)
+        rgba = cmap(frac)
+        rgb = tuple(int(255 * c) for c in rgba[:3])  # drop alpha
+        colorscale.append([frac, f'rgb{rgb}'])
+    return colorscale

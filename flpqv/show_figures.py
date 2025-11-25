@@ -118,11 +118,14 @@ def show_figures(data_toml):
 
 
     if(data_toml["show"]["isosurface"]):
-        data_cube1_iso = Data_cube()                                                                                                                                         
-        data_cube1_iso.read(data_toml["isosurface"]["cube1"])
-        data_cube2_iso = Data_cube()                                                                                                                                         
-        data_cube2_iso.read(data_toml["isosurface"]["cube2"])
-        plot_isosurface(figp, ax, data_toml, data_cube1_iso, data_cube2_iso)
+        def ensure_list(x):
+            return x if isinstance(x, list) else [x]
+        for isovalue in ensure_list(data_toml["isosurface"]["isovalue"]):
+            data_cube1_iso = Data_cube()                                                                                                                                         
+            data_cube1_iso.read(data_toml["isosurface"]["cube1"])
+            data_cube2_iso = Data_cube()                                                                                                                                         
+            data_cube2_iso.read(data_toml["isosurface"]["cube2"])
+            plot_isosurface(figp, ax, data_toml, data_cube1_iso, data_cube2_iso, isovalue)
         if (data_toml["show"]["lattice"]):
             if(flag_lattice_box):
                 plot_lattice_box(figp, ax, data_toml, data_cube1_iso)
@@ -186,9 +189,9 @@ def show_figures(data_toml):
         figp.update_layout(
             #paper_bgcolor = "black",
             scene=dict(
-                xaxis=dict(visible=False, title='X', range=[x_mid - max_range, x_mid + max_range]),  # Set range for X axis
-                yaxis=dict(visible=False, title='Y', range=[y_mid - max_range, y_mid + max_range]),  # Set range for Y axis
-                zaxis=dict(visible=False, title='Z', range=[z_mid - max_range, z_mid + max_range]),  # Set range for Z axis
+                xaxis=dict(visible=False, title='X', range=[(x_mid - max_range)*data_toml["view"]["ratio_zoom"], (x_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for X axis
+                yaxis=dict(visible=False, title='Y', range=[(y_mid - max_range)*data_toml["view"]["ratio_zoom"], (y_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for Y axis
+                zaxis=dict(visible=False, title='Z', range=[(z_mid - max_range)*data_toml["view"]["ratio_zoom"], (z_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for Z axis
                 aspectmode="cube",
                 camera=dict(
                     projection=dict(
@@ -201,6 +204,11 @@ def show_figures(data_toml):
                     )  # Adjust camera position
                 )
             ),
+            font=dict(
+                family="Times New Roman",
+                size=18,
+                color="black"
+            )
         )
 
         #figp.show()

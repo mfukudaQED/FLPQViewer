@@ -13,6 +13,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from scipy.spatial.distance import cdist
 
+import plotly.graph_objects as go
+
 BohrR = 0.529177249 # Angstrom
 
 class Data_atoms():
@@ -641,6 +643,51 @@ def plot_tensor_3d(data_tensor,data_cube,data_toml):
 
     plt.show()
     #plt.savefig("stress.pdf", bbox_inches='tight', pad_inches=0)
+
+    figp = go.Figure()
+
+    for i, translated_xyz in enumerate(list_translated_xyz):
+        x, y, z = translated_xyz
+    
+        # Add surface
+        fig.add_trace(
+            go.Surface(
+                x=x,
+                y=y,
+                z=z,
+                surfacecolor=None,  # Use solid color
+                colorscale=[[0, list_color[i]], [1, list_color[i]]],  # solid color
+                opacity=list_alpha[i],
+                showscale=False
+            )
+        )
+    
+    figp.update_layout(
+        scene=dict(
+            xaxis=dict(visible=False, title='X', range=[(x_mid - max_range)*data_toml["view"]["ratio_zoom"], (x_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for X axis
+            yaxis=dict(visible=False, title='Y', range=[(y_mid - max_range)*data_toml["view"]["ratio_zoom"], (y_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for Y axis
+            zaxis=dict(visible=False, title='Z', range=[(z_mid - max_range)*data_toml["view"]["ratio_zoom"], (z_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for Z axis
+            aspectmode="cube",
+            camera=dict(
+                projection=dict(
+                    type='orthographic'  # Use orthographic projection
+                ),
+                eye=dict(
+                    x=2 * np.cos(np.radians(data_toml["view"]["azim"])) * np.cos(np.radians(data_toml["view"]["elev"])),
+                    y=2 * np.sin(np.radians(data_toml["view"]["azim"])) * np.cos(np.radians(data_toml["view"]["elev"])),
+                    z=2 * np.sin(np.radians(data_toml["view"]["elev"]))
+                )  # Adjust camera position
+            )
+        ),
+        font=dict(
+            family="Times New Roman",
+            size=18,
+            color="black"
+        )
+    )
+
+
+    figp.write_html(data_toml["save"]["output_name"] + ".html")
 
 if __name__ == '__main__':
 
