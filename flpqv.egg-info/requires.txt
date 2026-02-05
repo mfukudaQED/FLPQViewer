@@ -1,0 +1,11 @@
+requests
+numpy>=2.0.0
+trimesh
+scipy
+scikit-image
+matplotlib
+watchdog
+sphinx
+notebook
+plotly
+dash

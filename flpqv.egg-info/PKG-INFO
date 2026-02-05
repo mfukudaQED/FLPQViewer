@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: flpqv
+Version: 0.1.3
+Summary: FLPQ Viewer
+Author-email: Masahiro FUKUDA <masahiro.fukuda@issp.u-tokyo.ac.jp>
+License-Expression: MIT
+Requires-Python: <3.13,>=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: requests
+Requires-Dist: numpy>=2.0.0
+Requires-Dist: trimesh
+Requires-Dist: scipy
+Requires-Dist: scikit-image
+Requires-Dist: matplotlib
+Requires-Dist: watchdog
+Requires-Dist: sphinx
+Requires-Dist: notebook
+Requires-Dist: plotly
+Requires-Dist: dash
+
+# About
+FLPQViewer is a code to visualize local physical quantities.
+
+# Installation
+
+```
+git clone https://github.com/mfukudaQED/FLPQViewer.git
+cd FLPQViewer
+pip install -e .
+```
+
+
+# Usage
+
+```
+python ${PATH_FLPQV}/flpqv/main_flpqv.py input.toml
+```
+
+
+The default.toml file is available at `${PATH_FLPQV}/flpqv/default.toml`.
+
+# Contact
+Masahiro FUKUDA (ISSP, Univ. of Tokyo)  
+masahiro.fukuda__at__issp.u-tokyo.ac.jp  
+Please replace `__at__` by @.
