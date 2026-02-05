@@ -416,6 +416,7 @@ def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2, isovalue):
     wpad[0] = int(toml_i["periodicity"][0])
     wpad[1] = int(toml_i["periodicity"][1])
     wpad[2] = int(toml_i["periodicity"][2])
+
     #data1_extended = np.pad(data1, pad_width=((1, 1), (1, 1), (1, 1)), mode='wrap')   
     data1_extended = np.pad(data1, pad_width=((wpad[0], wpad[0]), (wpad[1], wpad[1]), (wpad[2], wpad[2])), mode='wrap')   
     data2_extended = np.pad(data2, pad_width=((0, wpad[0]), (0, wpad[1]), (0, wpad[2])), mode='wrap')   
@@ -436,7 +437,7 @@ def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2, isovalue):
             (verts[:, 0] >= wpad[0]) & (verts[:, 0] <= smooth_data.shape[0]-wpad[0]),
             (verts[:, 1] >= wpad[1]) & (verts[:, 1] <= smooth_data.shape[1]-wpad[1]),
             #(verts[:, 2] >= wpad[2]) & (verts[:, 2] <= smooth_data.shape[2]-wpad[2])
-            (verts[:, 2] >= wpad[2]) & (verts[:, 2] <= smooth_data.shape[2]-wpad[2]-23)
+            (verts[:, 2] >= wpad[2]) & (verts[:, 2] <= smooth_data.shape[2]-wpad[2]-int(data_toml["isosurface"]["trim_z"]))
         ])
 
     else:
@@ -514,9 +515,10 @@ def plot_isosurface(figp, ax, data_toml, data_cube1, data_cube2, isovalue):
     if (toml_i["plot_2d"]):
         # Height of plane
         #z_plane = min_z - 1.5
-        #z_plane = min_z - toml_i["plot_2d_z"]
-        z_plane = max_z + toml_i["plot_2d_z"]
-        r_s = 4.0
+        z_plane = min_z - toml_i["plot_2d_z"]
+        #z_plane = max_z + toml_i["plot_2d_z"]
+        r_s = 3.5
+        #r_s = 4.0
         print(f"max_z: {max_z}")
         print(f"plot_2d_z: {toml_i["plot_2d_z"]}")
         print(f"z_plane: {z_plane}")

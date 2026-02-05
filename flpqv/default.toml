@@ -42,6 +42,7 @@ shade = false
 smooth = true
 plot_2d = false
 plot_2d_z = 1.5
+trim_z = 0
 
 [view]
 roughness = 3

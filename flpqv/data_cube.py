@@ -216,19 +216,19 @@ def subtract_cube(cube1, cube2):
 
 
 ################################
- if __name__ == '__main__': 
-    # Example usage
-    filename_cube1=sys.argv[1]
-    filename_cube2=sys.argv[2]
-
-    cube1 = Data_cube()
-    cube1.read(filename_cube1)
-
-    cube2 = Data_cube()
-    cube2.read(filename_cube2)
-
-    added_cube = add_cube(cube1, cube2)
-    added_cube.write('added_cube.cube')
-
-    subtracted_cube = subtract_cube(cube1, cube2)
-    subtracted_cube.write('subtracted_cube.cube')
+#if __name__ == '__main__':
+#   # Example usage
+#   filename_cube1=sys.argv[1]
+#   filename_cube2=sys.argv[2]
+#
+#   cube1 = Data_cube()
+#   cube1.read(filename_cube1)
+#
+#   cube2 = Data_cube()
+#   cube2.read(filename_cube2)
+#
+#   added_cube = add_cube(cube1, cube2)
+#   added_cube.write('added_cube.cube')
+#
+#   subtracted_cube = subtract_cube(cube1, cube2)
+#   subtracted_cube.write('subtracted_cube.cube')
