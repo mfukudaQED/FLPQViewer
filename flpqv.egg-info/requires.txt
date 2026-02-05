@@ -8,3 +8,4 @@ watchdog
 sphinx
 notebook
 plotly
+dash

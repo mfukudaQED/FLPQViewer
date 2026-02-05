@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flpqv"
-version = "0.1.2"
+version = "0.1.3"
 description = "FLPQ Viewer"
 authors = [{ name = "Masahiro FUKUDA", email = "masahiro.fukuda@issp.u-tokyo.ac.jp" }]
 license = "MIT"
 readme = "README.md"
-requires-python = ">=3.8, <3.13"
+requires-python = ">=3.12, <3.13"
 dependencies = [
     "requests",
     "numpy>=2.0.0",
@@ -20,7 +20,8 @@ dependencies = [
     "watchdog",
     "sphinx",
     "notebook",
-    "plotly"
+    "plotly",
+    "dash"
 ]
 
 [tool.setuptools.packages.find]

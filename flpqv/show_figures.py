@@ -16,6 +16,8 @@ from plot_data import plot_structure
 from plot_data import plot_isosurface
 from plot_data import plot_lattice_box
 
+import plotly.graph_objects as go
+
 def get_perpendicular_scale(ax):
     """Compute the scale on the plane perpendicular to the current view direction."""
     proj = ax.get_proj()
@@ -77,6 +79,8 @@ def show_figures(data_toml):
     setting = plot_style.Plot_style_1d()
     setting.plt_style()
 
+    figp = go.Figure() # for Plotly
+
     # Set the backend to TkAgg
     matplotlib.use("TkAgg")
 
@@ -103,25 +107,28 @@ def show_figures(data_toml):
         data_cube_header = Data_cube()                                                                                                                                         
         data_cube_header.read_header(data_toml["structure"]["cube_header"])
 
-        plot_structure(ax, text_objects, data_toml, data_cube_header)
+        plot_structure(figp, ax, text_objects, data_toml, data_cube_header)
         #atom_size_ratio = float(data_toml["structure"]["atom_size_ratio"])
         #fig.canvas.mpl_connect("draw_event", lambda event: update_fontsize(event, ax, fig, text_objects, atom_size_ratio))
 
         if (data_toml["show"]["lattice"]):
             if(flag_lattice_box):
-                plot_lattice_box(ax, data_toml, data_cube_header)
+                plot_lattice_box(figp, ax, data_toml, data_cube_header)
                 flag_lattice_box = False
 
 
     if(data_toml["show"]["isosurface"]):
-        data_cube1_iso = Data_cube()                                                                                                                                         
-        data_cube1_iso.read(data_toml["isosurface"]["cube1"])
-        data_cube2_iso = Data_cube()                                                                                                                                         
-        data_cube2_iso.read(data_toml["isosurface"]["cube2"])
-        plot_isosurface(ax, data_toml, data_cube1_iso, data_cube2_iso)
+        def ensure_list(x):
+            return x if isinstance(x, list) else [x]
+        for isovalue in ensure_list(data_toml["isosurface"]["isovalue"]):
+            data_cube1_iso = Data_cube()                                                                                                                                         
+            data_cube1_iso.read(data_toml["isosurface"]["cube1"])
+            data_cube2_iso = Data_cube()                                                                                                                                         
+            data_cube2_iso.read(data_toml["isosurface"]["cube2"])
+            plot_isosurface(figp, ax, data_toml, data_cube1_iso, data_cube2_iso, isovalue)
         if (data_toml["show"]["lattice"]):
             if(flag_lattice_box):
-                plot_lattice_box(ax, data_toml, data_cube1_iso)
+                plot_lattice_box(figp, ax, data_toml, data_cube1_iso)
                 flag_lattice_box = False
 
 
@@ -160,9 +167,6 @@ def show_figures(data_toml):
     if not (data_toml["show"]["axis"]):
         ax.set_axis_off()
 
-
-
-
     ############  set view  ##############
     #ax.view_init(elev=00, azim=-90) #methane
     #ax.view_init(elev=-90, azim=120)
@@ -170,13 +174,46 @@ def show_figures(data_toml):
     # 透視投影 (perspective) をオフにする（平行投影にする）
     ax.set_proj_type('ortho')
 
-
     if (data_toml["save"]["interactive"]):
         print("interactive plot start")
         plt.show(block=True)
         print("show plot end")
         #plt.draw()
         #plt.pause(1.0)
+
+
+    ################################################
+    ############  setting for Plotly  ##############
+    ################################################
+    if (data_toml["save"]["Plotly"]):
+        figp.update_layout(
+            #paper_bgcolor = "black",
+            scene=dict(
+                xaxis=dict(visible=False, title='X', range=[(x_mid - max_range)*data_toml["view"]["ratio_zoom"], (x_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for X axis
+                yaxis=dict(visible=False, title='Y', range=[(y_mid - max_range)*data_toml["view"]["ratio_zoom"], (y_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for Y axis
+                zaxis=dict(visible=False, title='Z', range=[(z_mid - max_range)*data_toml["view"]["ratio_zoom"], (z_mid + max_range)*data_toml["view"]["ratio_zoom"]]),  # Set range for Z axis
+                aspectmode="cube",
+                camera=dict(
+                    projection=dict(
+                        type='orthographic'  # Use orthographic projection
+                    ),
+                    eye=dict(
+                        x=2 * np.cos(np.radians(data_toml["view"]["azim"])) * np.cos(np.radians(data_toml["view"]["elev"])),
+                        y=2 * np.sin(np.radians(data_toml["view"]["azim"])) * np.cos(np.radians(data_toml["view"]["elev"])),
+                        z=2 * np.sin(np.radians(data_toml["view"]["elev"]))
+                    )  # Adjust camera position
+                )
+            ),
+            font=dict(
+                family="Times New Roman",
+                size=18,
+                color="black"
+            )
+        )
+
+        #figp.show()
+        figp.write_html(data_toml["save"]["output_name"] + ".html")
+
 
         # **vispy で OpenGL 描画**
         #from vispy import scene
